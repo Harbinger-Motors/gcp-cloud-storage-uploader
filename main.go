@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	b64 "encoding/base64"
 	"flag"
 	"fmt"
 	"io"
@@ -14,10 +15,29 @@ import (
 func main() {
 	bucketFlag := flag.String("bucket", "", "the bucket to upload to")
 	remotePathFlag := flag.String("bucket-path", "", "the path in the bucket to upload to")
+	useEnvCredsFlag := flag.Bool("use-env-creds", false, "uses the base64 decoded value of the GCP_AUTH_FILE_CONTENTS variable as the Google Cloud .json service file credentials")
 
 	flag.Parse()
 
 	args := flag.Args()
+
+	if *useEnvCredsFlag {
+		base64Encoded := os.Getenv("GCP_AUTH_FILE_CONTENTS")
+
+		decoded, err := b64.StdEncoding.DecodeString(base64Encoded)
+		if err != nil {
+			fmt.Printf("Error decoding GCP_AUTH_FILE_CONTENTS as base64: %v\n", err)
+			os.Exit(1)
+		}
+
+		err = os.WriteFile("gcp-auth-file.json", decoded, 0644)
+		if err != nil {
+			fmt.Printf("Error writing to gcp-auth-file: %v\n", err)
+			os.Exit(1)
+		}
+
+		os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "gcp-auth-file.json")
+	}
 
 	if len(args) == 0 {
 		fmt.Printf("Please specify the path to the file to upload.\n")
